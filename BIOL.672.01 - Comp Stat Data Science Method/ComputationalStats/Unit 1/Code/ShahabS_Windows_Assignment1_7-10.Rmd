@@ -1,0 +1,79 @@
+---
+title: "DATATESTFORCOMPSTAT"
+author: "Sabiq Shahab"
+date: "2024-09-29"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+```
+
+#files used
+#Clinical_Data.csv
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#importing dataset
+df <- read.csv('Clinical_Data.csv')
+#selecting specific parts of the data
+data <- select(df, PAM50, PAM50.Risk.Of.Recurrence, Age, Menopausal.Status, Tumor.size, Hist.Grade, Node.status, Metastasis.status, OncotypeDX.Recurrence.Score, Oncotype.Risk, Size..mm., ER, PR, Her2 )
+#getting rid of rows with NA values
+Df <- na.omit(data)
+#printing final dataset
+print(Df)
+#performing Manova on data, with the PAM50 variable being the independent variable
+manova_result <- manova(cbind(PAM50.Risk.Of.Recurrence, Age, Hist.Grade, Menopausal.Status, Node.status,  Oncotype.Risk, ER, PR, Her2 ) ~ PAM50, data = Df)
+#exporting results
+sink('clinical_data_manova.txt')
+summary(manova_result)
+sink()
+#results indicate that PAM50 significantly influences multivariate response variables 
+```
+
+```{r}
+#performing linear regression on data, predicting tumor size based on the other variables
+regression <- lm( Size..mm. ~ Age + Hist.Grade + Menopausal.Status + Oncotype.Risk + ER + PR + Her2 + Node.status + PAM50.Risk.Of.Recurrence + Metastasis.status + OncotypeDX.Recurrence.Score, data = Df)
+
+#exporting results
+sink('cinical_data_lm.txt')
+summary(regression)
+sink()
+
+#the results suggest PR, Node status, and maybe the OncotypeDX Recurrence Score are significant predictors of tumor size
+```
+
+```{r}
+#creating a dataframe for a specific subtype of cancer in the data
+data_LumB <- Df[Df$PAM50 == 'LumB', ]
+#performing regression on the specific subtype, predicting tumor size based on the other variables
+regression2 <- lm(Size..mm. ~ Age + Hist.Grade + Menopausal.Status + Oncotype.Risk + ER + PR + Her2 + Node.status + PAM50.Risk.Of.Recurrence + Metastasis.status + OncotypeDX.Recurrence.Score, data = data_LumB)
+
+#exporting results
+sink('clinical_data_lm2.txt')
+summary(regression2)
+sink()
+
+#results suggest PR has a  significant impact on tumor size, with lower PR associated with smaller tumors, other variables are not significant
+```
+
+```{r}
+#creating a dataframe with a composite variable
+Df2 <- Df %>%
+  mutate(TumorRisk = Size..mm. * Hist.Grade + PAM50.Risk.Of.Recurrence)
+#performing ancova for the data
+ancova_model <- aov(Node.status ~ Age + TumorRisk, data = Df2)
+#exporting results
+sink('clinical_data_ancova.txt')
+summary(ancova_model)
+sink()
+
+#results indicate TumorRisk is a significant predictor of node status (higher tumorrisk value = likelihood of node involvement), but age does not significant affect node status
+```
+
+

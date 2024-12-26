@@ -1,0 +1,319 @@
+---
+title: "Unit 2 Assignment"
+author: "Sabiq Shahab"
+date: "2024-10-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(MASS)
+library(mclust)
+library(e1071)
+library(class)
+library(kernlab)
+library(neuralnet)
+library(keras)
+library(tensorflow)
+library(randomForest)
+library(ada)
+
+set.seed(672)
+```
+
+```{r}
+#Read Data from file
+Data <- read.csv('data.csv')
+#Shuffle data
+Shuffle = Data[sample(1:nrow(Data)), ]
+#Select desired columns/features
+Size <- dplyr::select(Shuffle, diagnosis, radius_mean, perimeter_mean)
+#Creating 3 groups
+Sets <- Size %>% mutate(group = sample(1:3, n(), replace = TRUE))
+#Separating the groups
+groups <- split(Sets, Sets$group)
+#Specifying groups
+Group1 <- groups[[1]]
+Group2 <- groups[[2]]
+Group3 <- groups[[3]]
+#Setting first group for testing and combining other two for training
+Testing <- Group1
+Training <- rbind(Group2, Group3)
+#Going to use radius mean and perimeter mean to calculate diagnosis classification (benign or malignant)
+```
+
+```{r}
+#Creating naiveBayes model
+Model <- naiveBayes(diagnosis ~ ., data = Training)
+#Using model to predict using testing set
+Predict <- predict(Model, Testing)
+#Creating confusion matrix to analyze accuracy and printing confusion matrix
+CMatrix <- table(Predicted = Predict, Actual = Testing$diagnosis)
+print(CMatrix)
+#Calculating accuracy of model and printing it
+NBAccuracy <- sum(diag(CMatrix)) / sum(CMatrix)
+print(NBAccuracy)
+#Creating correct/incorrect data from predictions
+Testing$Correct <- ifelse(Predict == Testing$diagnosis, "Correct", "Incorrect")
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(title = "Naive Bayes Classification Results: Correct vs. Incorrect Assignments",
+       x = "Feature 1", y = "Feature 2") +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red"))
+```
+
+```{r}
+#Creating K nearest neighbor training and testing dataset
+KTraining <- as.data.frame(Training[, c("radius_mean", "perimeter_mean")])
+KTesting <- as.data.frame(Testing[, c("radius_mean", "perimeter_mean")])
+#Creating labels as factors
+Klabels <- as.factor(Training$diagnosis)
+#Creating K nearest neighbor model, specifying 2 groups
+Model <- knn(train = KTraining, test = KTesting, cl = Klabels, k = 2)
+#Creating confusion matrix to analyze correct predictions from model and printing
+CMatrix <- table(Predicted = Model, Actual = Testing$diagnosis)
+print(CMatrix)
+#Calculating accuracy of model and printing
+KNNAccuracy <- sum(diag(CMatrix)) / sum(CMatrix)
+print(KNNAccuracy)
+#Creating correct/incorrect data from predictions
+Testing$Correct <- ifelse(Predict == Testing$diagnosis, "Correct", "Incorrect")
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(title = "KNN Classification Results: Correct vs. Incorrect Assignments",
+       x = "Feature 1", y = "Feature 2") +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red"))
+
+```
+
+```{r}
+#Creating linear discriminant analysis model
+Model <- lda(diagnosis ~ ., data = Training)
+#Using the linear discriminant analysis model on testing data set
+Predict <- predict(Model, Testing)
+#Creating confusion matrix to analyze incorrect and correct results and printing
+CMatrix <- table(Predicted = Predict$class, Actual = Testing$diagnosis)
+print(CMatrix)
+#Calculating accuracy and printing
+LDAAccuracy <- sum(diag(CMatrix)) / sum(CMatrix)
+print(LDAAccuracy)
+#Creating correct/incorrect data from predictions
+Testing$Correct <- ifelse(Predict$class == Testing$diagnosis, "Correct", "Incorrect")
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(title = "LDA Classification Results: Correct vs. Incorrect Assignments",
+       x = "radius_mean", y = "perimeter_mean") +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red"))
+```
+
+```{r}
+#Creating quadratic discriminant analysis model
+Model <- qda(diagnosis ~ ., data = Training)
+#Using the quadratic discriminant analysis model on testing data set
+Predict <- predict(Model, Testing)
+#Creating confusion matrix to analyze incorrect and correct results and printing
+CMatrix <- table(Predicted = Predict$class, Actual = Testing$diagnosis)
+print(CMatrix)
+#Calculating accuracy and printing
+QDAAccuracy <- sum(diag(CMatrix)) / sum(CMatrix)
+print(QDAAccuracy)
+#Creating correct/incorrect data from predictions
+Correct <- Predict$class == Testing$diagnosis
+Testing$Correct <- ifelse(Predict$class == Testing$diagnosis, "Correct", "Incorrect")
+
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(title = "QDA Classification Results: Correct vs. Incorrect Assignments",
+       x = "radius_mean", y = "perimeter_mean") +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red"))
+```
+
+
+```{r}
+#Coercing data to work with support vector machine model
+Training$diagnosis <- as.factor(Training$diagnosis)
+Testing$diagnosis <- as.factor(Testing$diagnosis)
+#Creating SVM model using linear kernal
+svm_linear <- svm(diagnosis ~ radius_mean + perimeter_mean, data = Training, kernel = "linear")
+#Using model on testing data set
+pred_linear <- predict(svm_linear, Testing)
+#Creating confusion matrix to analyze incorrect and correct results and printing
+CMatrix_linear <- table(Predicted = pred_linear, Actual = Testing$diagnosis)
+print(CMatrix_linear)
+#Calculating accuracy and printing
+LinearAccuracy <- sum(diag(CMatrix_linear)) / sum(CMatrix_linear)
+print(paste("Accuracy", round(LinearAccuracy * 100, 2), "%"))
+#Creating correct/incorrect data from predictions
+Testing$Correct_linear <- ifelse(pred_linear == Testing$diagnosis, "Correct", "Incorrect")
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct_linear)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(title = "SVM Linear Kernel Classification: Correct vs. Incorrect Predictions",
+       x = "Radius Mean", y = "Perimeter Mean") +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red")) 
+
+
+```
+
+```{r}
+#Creating SVM model using polynomial kernal
+svm_poly <- svm(diagnosis ~ ., data = Training, kernel = "polynomial", degree = 3)
+#Using model on testing data set
+pred_poly <- predict(svm_poly, Testing)
+#Creating confusion matrix to analyze incorrect and correct results and printing
+CMatrix_poly <- table(Predicted = pred_poly, Actual = Testing$diagnosis)
+print(CMatrix_poly)
+#Calculating accuracy and printing
+PolyAccuracy <- sum(diag(CMatrix_poly)) / sum(CMatrix_poly)
+print(paste("Accuracy", round(PolyAccuracy * 100, 2), "%"))
+#Creating correct/incorrect data from predictions
+Testing$Correct_poly <- ifelse(pred_poly == Testing$diagnosis, "Correct", "Incorrect")
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct_poly)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(title = "SVM Polynomial Kernel Classification: Correct vs. Incorrect Predictions",
+       x = "Radius Mean", y = "Perimeter Mean") +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red"))
+```
+
+```{r}
+#Creating SVM model using radial basis function kernal
+svm_rbf <- svm(diagnosis ~ ., data = Training, kernel = "radial")
+#Using model on testing data set
+pred_rbf <- predict(svm_rbf, Testing)
+#Creating confusion matrix to analyze incorrect and correct results and printing
+CMatrix_rbf <- table(Predicted = pred_rbf, Actual = Testing$diagnosis)
+print(CMatrix_rbf)
+#Calculating accuracy and printing
+RBFAccuracy <- sum(diag(CMatrix_rbf)) / sum(CMatrix_rbf)
+print(paste("Accuracy", round(RBFAccuracy * 100, 2), "%"))
+#Creating correct/incorrect data from predictions
+Testing$Correct_rbf <- ifelse(pred_rbf == Testing$diagnosis, "Correct", "Incorrect")
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct_rbf)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(title = "SVM RBF Kernel Classification: Correct vs. Incorrect Predictions",
+       x = "Radius Mean", y = "Perimeter Mean") +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red"))
+
+```
+```{r}
+#Scaling features Training and Testing datasets
+scale_features <- function(df, features) {
+  df[features] <- scale(df[features])
+  return(df)
+}
+Training <- scale_features(Training, c("radius_mean", "perimeter_mean"))
+Testing <- scale_features(Testing, c("radius_mean", "perimeter_mean"))
+#Creating Neural Net model
+neuralnet_model <- neuralnet(diagnosis ~ radius_mean + perimeter_mean, data = Training, stepmax = 1e7)
+# Generating predictions on Testing dataset using only the features used in training
+predictions_nn <- compute(neuralnet_model, Testing[, c("radius_mean", "perimeter_mean")])$net.result
+#Using only first column of neural net predictions for binary classification
+pred_class_nn <- ifelse(predictions_nn[, 1] > 0.5, 1, 0)
+#Creating a confusion matrix to compare predicted vs actual diagnoses
+CMatrix_nn <- table(Predicted = pred_class_nn, Actual = Testing$diagnosis)
+#Calculating neural network accuracy
+nnAccuracy <- sum(diag(CMatrix_nn)) / sum(CMatrix_nn)
+#Printing confusion matrix and accuracy
+print(CMatrix_nn)
+print(nnAccuracy)
+#Adding a column to indicate if each prediction was correct or incorrect
+Testing$Correct_nn <- ifelse(pred_class_nn == Testing$diagnosis, "Correct", "Incorrect")
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct_nn)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(
+    title = "Neural Network Classification: Correct vs. Incorrect Predictions",
+    x = "Radius Mean",
+    y = "Perimeter Mean"
+  ) +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red"))
+
+```
+
+
+```{r}
+#Converting diagnosis to a factor
+Training$diagnosis <- as.factor(Training$diagnosis)
+#Making sure to setting the levels as binary 
+Training$diagnosis <- factor(Training$diagnosis, levels = c("B", "M"))
+#Creating random forest model
+rf_model <- randomForest(diagnosis ~ radius_mean + perimeter_mean, data = Training)
+#Predictions using the random forest model on testing data
+predictions_rf <- predict(rf_model, Testing[, c("radius_mean", "perimeter_mean")])
+#Convert predictions to binary "M" for malignant and "B" for benign
+pred_class_rf <- ifelse(predictions_rf == "M", "M", "B")
+#Creating confusion matrix to analyze incorrect and correct results
+CMatrix_rf <- table(Predicted = pred_class_rf, Actual = Testing$diagnosis)
+#Calculating accuracy
+rfAccuracy <- sum(diag(CMatrix_rf)) / sum(CMatrix_rf)
+#Printing confusion matrix and accuracy
+print(CMatrix_rf)
+print(rfAccuracy)
+#Converting predictions to factors and adding a column to Testing to track correct predictions
+Testing$Predicted_rf <- factor(ifelse(predictions_rf == "M", "M", "B"), levels = c("B", "M"))
+Testing$Correct_rf <- ifelse(Testing$Predicted_rf == Testing$diagnosis, "Correct", "Incorrect")
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct_rf)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(
+    title = "Random Forest Classification: Correct vs. Incorrect Predictions",
+    x = "Radius Mean",
+    y = "Perimeter Mean"
+  ) +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red"))
+```
+
+```{r}
+#Creating ada boost model
+ada_model <- ada(diagnosis ~ radius_mean + perimeter_mean, data = Training, type = "discrete")
+#Getting predictions from the AdaBoost model
+predictions_ada <- predict(ada_model, Testing[, c("radius_mean", "perimeter_mean")])
+#Convert predictions to binary "M" for malignant and "B" for benign
+pred_class_ada <- ifelse(predictions_ada == "M", 1, 0)
+#Creating confusion matrix to analyze incorrect and correct results
+CMatrix_ada <- table(Predicted = pred_class_ada, Actual = Testing$diagnosis)
+#Calculating accuracy
+adaAccuracy <- sum(diag(CMatrix_ada)) / sum(CMatrix_ada)
+#Printing confusion matrix and accuracy
+print(CMatrix_ada)
+print(adaAccuracy)
+#Converting predictions to factors and adding a column to Testing to track correct predictions
+Testing$Predicted_ada <- factor(ifelse(predictions_ada == "M", "M", "B"), levels = c("B", "M"))
+Testing$Correct_ada <- ifelse(Testing$Predicted_ada == Testing$diagnosis, "Correct", "Incorrect")
+#Plotting a scatterplot with colors indicating correct/incorrect predictions
+ggplot(Testing, aes(x = radius_mean, y = perimeter_mean, color = Correct_ada)) +
+  geom_point(alpha = 0.5, size = 3) +
+  labs(
+    title = "AdaBoost Classification: Correct vs. Incorrect Predictions",
+    x = "Radius Mean",
+    y = "Perimeter Mean"
+  ) +
+  scale_color_manual(values = c("Correct" = "green", "Incorrect" = "red"))
+
+```
+
+
+#Comparing all the results
+#Neural Network: 9.27%
+#Support Vector Machine (RBF Kernel): 84.39%
+#Support Vector Machine (Polynomial Kernel): 86.34%
+#K-Nearest Neighbors (KNN): 86.83%
+#Random Forest (RF): 86.34%
+#AdaBoost (ADA): 88.29%
+#Linear Discriminant Analysis (LDA): 89.27%
+#Support Vector Machine (Linear Kernel): 90.24%
+#Quadratic Discriminant Analysis (QDA): 92.20%
+
+#According to the results, Quadratic Discrimanant Analysis was the best model to use followed by the SVM linear kernal and then the Linear Discrimanant Analysis. random forest seemed to do better than KNN and the SVM models using the RBF and Polynomial kernal. The Neural Net did by far the worst.
+

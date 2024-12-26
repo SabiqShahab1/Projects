@@ -1,0 +1,353 @@
+---
+title: "Windows_Unit1_BIOL672.R"
+author: "Sabiq Shahab"
+date: "2024-09-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(arsenal)
+library(mclust)
+library(MASS)
+```
+
+#Files Used:
+#iris_csv_big.csv
+#iris_tab_smnoise
+#iris_csv_purchase.csv
+
+
+```{r}
+#setting reproducible results
+set.seed(672)
+#creating a random set
+df <- rnorm(5000)
+#calculating mean and deviation of the random set
+mdf <- mean(df)
+sdf <- sd(df)
+#creating a file to store mean and deviation
+sink("desc.txt")
+#storing mean and deviation
+print(mdf)
+print(sdf)
+sink()
+
+#setting up data for histogram
+dataframe <- as.data.frame(df)
+x <- unlist(dataframe)
+#creating histogram using ggplot
+histogram <- ggplot(dataframe, aes(x = x),
+       colour = 1, fill = "white") + 
+  geom_histogram(aes(y = ..density..)) +
+#adding density curve
+  geom_density() +
+#adding normal distribution curve
+stat_function(fun = dnorm, args = list(mean = mean(x), sd = sd(x)))
+
+#creating a file and storing histogram plot
+pdf('histo.pdf')
+print(histogram)
+dev.off()
+histogram
+```
+
+```{r}
+#create a data structure for the big iris table
+IrisData <- read.csv('iris_csv_big.csv')
+#perform an aov on the iris data using petal length and species
+IrisAov <- aov (IrisData$PetalLength~IrisData$Species)
+#print the results
+summary(IrisAov)
+#creating easy to reference data
+#one for petal length
+IrisPL <- IrisData$PetalLength
+#one for species
+IrisSP <- IrisData$Species
+#one for petal width
+IrisPW <- IrisData$PetalWidth
+#Plot the iris AOV results
+IrisAnovaPlot <- ggplot(IrisData, aes(x=IrisSP, y = IrisPL, fill = factor (IrisSP))) +
+  geom_boxplot(color = "black", alpha = 0.7) + 
+  labs(title = "One-Way ANOVA", 
+       x = "Species", 
+       y = "Petel Length")
+#Performing a pairwise t test for petal length and species with a bonferroni adjustment
+IrisTbo <- pairwise.t.test(IrisData$PetalLength, IrisData$Species, p.adjust.method = "bonferroni")
+#Performing a pairwise t test for petal length and species with a benjamini-hochberg adjustment
+IrisTbe <- pairwise.t.test(IrisData$PetalLength, IrisData$Species, p.adjust.method = 'BH')
+#Storing the AOV and t-test results, along with the plot
+sink('IrisStat.txt')
+IrisAov
+IrisTbo
+IrisTbe
+sink()
+
+pdf('IrisStat.pdf')
+IrisAnovaPlot
+dev.off()
+#based on the results of the AOV
+#species has a significant impact on petal length
+#based on the results of the t-test
+#species have significantly different petal lengths
+IrisAnovaPlot
+```
+
+```{r}
+#performing kruskal wallis test on petal length and species
+IrisKW <- kruskal.test(IrisData$PetalLength, IrisData$Species)
+#performing correlation using pearson on petal length and petal width
+IrisP <- cor(IrisPL,IrisPW, method = 'pearson')
+#performing correlation using spearman on petal length and width
+IrisS <- cor(IrisPL,IrisPW, method = 'spearman')
+
+#performing a KS test on petal length
+IrisKSL <- ks.test(IrisPL, 'pnorm')
+#performing a KS test on petal width
+IrisKSW <- ks.test(IrisPW, 'pnorm')
+
+
+#plotting the correlation  through a scatter plot of petal length and width with the pearson and spearman correlation (dont forget to plot two different lines)
+IrisCor <- ggplot(IrisData, aes(x = PetalLength, y = PetalWidth)) +
+  geom_point() +
+  ggtitle(paste("Scatterplot of Petal Length vs. Petal Width\n",
+                "Pearson: ", round(IrisP, 2), " Spearman: ", round(IrisS, 2))) +
+  xlab("Petal Length") + 
+  ylab("Petal Width") +
+  theme_minimal()
+
+#pairs(IrisData[4:3], lower.panel = NULL)
+#storing data from Kruski-Wallis, KS, and pearson/spearman correlation
+sink('IrisCor.txt')
+print(IrisP)
+print(IrisS)
+print(IrisKW)
+print(IrisKSL)
+print(IrisKSW)
+sink()
+#based on the results of the test, petal length and width are correlated, Petal length and petal width are not normally distributed, the parametric and non parametric results are the same because the data was not normally distributed and the non parametric data concluded a significant relationship, just as the correlation did
+
+#storing plot of correlation
+pdf('IrisCor.pdf')
+IrisCor
+dev.off()
+IrisCor
+```
+
+
+```{r}
+#performing a simple linear regression on petal length and width
+IrisLM <- lm(data = IrisData[3:4])
+#plotting the linear regression
+IrisLMP <- ggplot(IrisData, aes(x = PetalLength, y = PetalWidth)) +
+  geom_point() +
+  stat_smooth(method = "lm")
+#storing the data from the LM test
+sink('IrisLM.txt')
+print(IrisLM)
+summary(IrisLM)
+sink()
+#storing the LM plot
+pdf('IrisLM.pdf')
+IrisLMP
+dev.off()
+IrisLMP
+#The results still show a strong correlation between petal length and width, indicating as petal length increases so does petal width
+#Regression is used to model/predict a relationship between the dependent and independent variables while correlation is used to measure the strength of the relationship
+```
+
+```{r}
+#importing corrupt iris data
+Corrupt_iris <- read_table('C:/Users/Sabiq Shahab/Desktop/R code practice/course-code-repo-main/statistics_(BIOL470-672)/corrupted-extended_iris_data_sets/iris_tab_smnoise.csv')
+#performing linear regression on the normal and corrupt iris data
+IrisLMS <- lm(data = IrisData)
+CorruptLMS <- lm(data=Corrupt_iris)
+#storing the results
+sink('Iris_Corrupt.txt')
+print(IrisLMS)
+print(CorruptLMS)
+sink()
+
+#the results indicate an opposite relationship between the two data sets and that linear regression is sensitive to changes in the data
+```
+
+
+```{r}
+#importing purchase data
+Purchase <- read.csv('C:/Users/Sabiq Shahab/Desktop/R code practice/course-code-repo-main/statistics_(BIOL470-672)/corrupted-extended_iris_data_sets/iris_csv_purchase.csv')
+
+#selecting specific variables from the data
+Pdata <- Purchase[c("sepal_length", "sepal_width", "petal_length", "petal_width", "species", "attractiveness", "likelytobuy", "sold", "review")]
+
+#performing chi-sq test on data (species vs sold)
+chisq.test(table(Pdata$species, Pdata$sold))
+
+#performing kruskal-wallis test (likely to buy by species) (attractiveness by species) (review by species)
+kruskal.test(likelytobuy ~ species, data = Pdata)
+kruskal.test(attractiveness ~ species, data = Pdata)
+kruskal.test(review ~ species, data = Pdata)
+
+#performing correlation (review and likely to buy) (attractiveness and likely to buy) (review and attractiveness)
+cor(Pdata$review, Pdata$likelytobuy, method = "spearman")
+cor(Pdata$attractiveness, Pdata$likelytobuy, method = "spearman")
+cor(Pdata$review, Pdata$attractiveness, method = "spearman")
+
+#results indicate no significant association between species and the variables (sold, likely to buy, attractiveness, and review). Correlations also indicates attractiveness, likely to buy, and review are not strongly related
+```
+
+```{r}
+#preparing data for PCA analysis
+PCAData <- IrisData[1:4]
+#conducting pca analysis
+fit <- princomp(PCAData, cor=TRUE)
+
+#exporting data
+sink('PCA_Iris.txt')
+summary(fit)
+loadings(fit)
+sink()
+
+#creating the scree plot
+pdf('screeplot.pdf')
+screeplot <- plot(fit,type="lines") 
+dev.off()
+plot(fit,type="lines")
+#the reduction of the data was successful, since the data was reduced but retained a significant amount of variance, the scree plot shows that.
+#Comp.1 has three positive loadings for SepalLength, PetalLength, and PetalWidth, it captures overall size-related variation.
+#Comp.2 is primarily driven by SepalWidth, focuses on variation specific to the sepal's width,
+#Comp.3 captures variation related to SepalLength, contrast between SepalLength and petal dimensions
+#Comp.4 contrast between PetalLength and PetalWidth
+#Comp.1 is the best to in describing overall size variation, it has positive loadings for SepalLength, PetalLength, and PetalWidth
+#Comp.2 is strongly driven by SepalWidth
+
+#Conducting factor analysis
+fits <- factanal(PCAData, 1, rotation="varimax")
+
+#exporting data
+sink('Factor_Iris.txt')
+print(fits, digits=2, cutoff=.3, sort=TRUE)
+sink()
+
+#based on the data, there is one significant latent factor, factor loadings show most variables, except sepalwidth are loaded on this single factor and 67% of the proportion of variance is explained. Additionally 2 degrees of freedom, and p-value of 0 indicates one factor is sufficient 
+
+#PetalLength (0.96) and PetalWidth (0.96) are closely associated with the latent factor and thus likely tend to cluster together.
+#if traits are close together along the axis of a significant factor suggests traits are highly correlated
+#if traits are far apart, this indicates they are less correlated or even independent.
+
+#factor analysis was successful in identifying a single large latent variable, 67% variation
+```
+
+
+
+```{r}
+#creating dataset for scatterplot
+scatterplot <- IrisData[3:5]
+#plotting data, with petal length vs petal width, and colored by species
+SpeciesPlot <- ggplot(scatterplot, aes(x = PetalLength, y = PetalWidth, color = Species)) +
+  geom_point(size = 3) + 
+  labs(title = "Petal Length vs Petal Width", 
+       x = "Petal Length", 
+       y = "Petal Width")
+#exporting data
+pdf('SpeciesPlot.pdf')
+SpeciesPlot
+dev.off()
+SpeciesPlot
+# 3 clusters can be visually identified
+
+#creating dataset for k-means cluster
+Kluster <- IrisData[3:4]
+#performing cluster analysis, with 3 clusters specified
+IrisKmeans <- kmeans(Kluster, centers = 3, nstart = 20)
+#adding the cluster to the dataset as a factor
+Kluster$Cluster <- as.factor(IrisKmeans$cluster)
+#plotting the kmeans cluster analysis 
+Kplot <- ggplot(Kluster, aes(x = PetalLength, y = PetalWidth, color = Cluster)) +
+  geom_point(size = 3) +
+  labs(title = "K-means Clustering (3 Clusters)",
+       x = "Petal Length", 
+       y = "Petal Width") +
+   scale_color_manual(values = c("red", "green", "blue"))
+#exporting data
+pdf('Kplot.pdf')
+Kplot
+dev.off()
+Kplot
+```
+
+```{r}
+#create data structure using only a part of the Iris data including only positive petal length values
+DistIris <- IrisData$PetalLength[IrisData$PetalLength > 0]
+
+#Fitting different probability distributions
+normal_Iris <- fitdistr(DistIris, 'normal')
+lognormal_Iris <- fitdistr(DistIris, 'lognormal')
+exp_Iris <- fitdistr(DistIris, 'exponential')
+
+#Fitting a Gaussian Mixture Model (GMM) with 2 components
+gmm_Iris <- Mclust(DistIris, G=2)
+
+#Calculating log-likelihoods for each fitted model
+loglik_normal <- logLik(normal_Iris)
+loglik_lognormal <- logLik(lognormal_Iris)
+loglik_exp <- logLik(exp_Iris)
+loglik_gmm <- gmm_Iris$loglik
+
+#Calculating Bayesian Information Criterion for each fitted model
+bic_normal <- BIC(logLik(normal_Iris))
+bic_lognormal <- BIC(logLik(lognormal_Iris))
+bic_exp <- BIC(logLik(exp_Iris))
+bic_gmm <- gmm_Iris$bic
+
+#storing the log-likelihood and BIC values for each model
+sink('fitted_model_iris.txt')
+print(loglik_normal)
+print(bic_normal)
+
+print(loglik_lognormal)
+print(bic_lognormal)
+
+print(loglik_exp)
+print(bic_exp)
+
+print(loglik_gmm)
+print(bic_gmm)
+sink()
+
+#model testing indicates presence of latent variability in the data, as the Gaussian Mixture Model (GMM) provided the best fit with the lowest BIC score and has the highest log-likelihood value
+
+#Creating a histogram of petal length distribution and overlaying fitted models
+fittedIris <- ggplot(data.frame(DistIris), aes(DistIris)) +
+#Histogram of petal length with density normalization
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "lightblue", color = "black", alpha = 0.8) +
+#Adding fitted normal distribution with a solid blue line
+  stat_function(fun = dnorm, args = list(mean = normal_Iris$estimate[1], sd = normal_Iris$estimate[2]), 
+                color = "blue", size = 1, linetype = "solid") + 
+#Adding fitted lognormal distribution with dashed green line
+  stat_function(fun = dlnorm, args = list(meanlog = lognormal_Iris$estimate[1], sdlog = lognormal_Iris$estimate[2]), 
+                color = "green", size = 1, linetype = "dashed") + 
+#Adding fitted exponential distribution with dotted purple line
+  stat_function(fun = dexp, args = list(rate = exp_Iris$estimate[1]), 
+                color = "purple", size = 1, linetype = "dotted") +
+#Adding Gaussian Mixture Model with red dot-dash line
+  stat_density(aes(x = DistIris, y = ..density..), data = data.frame(x = gmm_Iris$data), color = "red", size = 1, 
+               linetype = "dotdash", alpha = 0.5) + 
+#Adding title and axis labels
+  labs(title = "Model Fits to Petal Length", 
+       x = "Petal Length", 
+       y = "Density")
+
+#storing plot
+pdf('fitted_iris_plot.pdf')
+fittedIris
+dev.off()
+fittedIris
+```
+
